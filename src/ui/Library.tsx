@@ -98,7 +98,7 @@ export function LibraryView() {
 }
 
 function Detail({ exercise, onEdit, onClose, onSelect }: { exercise: Exercise; onEdit: () => void; onClose: () => void; onSelect: (id: string | null) => void }) {
-  const { settings, progress, saveExercise, deleteExercise } = useStore()
+  const { settings, progress, saveExercise, deleteExercise, openSheets } = useStore()
   const [key, setKey] = useState(0)
   const [variant, setVariant] = useState(0)
   const [confirm, setConfirm] = useState(false)
@@ -156,6 +156,7 @@ function Detail({ exercise, onEdit, onClose, onSelect }: { exercise: Exercise; o
 
       <div className="row gap wrap actions">
         <button className="btn" onClick={onEdit}>Edit</button>
+        <button className="btn" onClick={() => openSheets({ ids: [exercise.id], keys: ALL_KEYS })} title="Printable sheet in all 12 keys">Print sheet</button>
         <button className="btn" onClick={async () => { const d = duplicateExercise(exercise); await saveExercise(d); onSelect(d.id) }}>Duplicate</button>
         <button className="btn" onClick={() => saveExercise({ ...exercise, archived: !exercise.archived })}>{exercise.archived ? 'Unarchive' : 'Archive'}</button>
         {!confirm ? (

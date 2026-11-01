@@ -1,8 +1,10 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { StoreProvider, useStore, type View } from './ui/store'
 import { PracticeView } from './ui/Session'
 import { LibraryView } from './ui/Library'
 import { SettingsView } from './ui/Settings'
+import { SheetsView } from './ui/Sheets'
+import { pwaState, subscribePwa } from './pwa'
 import { piano } from './audio/engine'
 
 function Shell() {
@@ -25,6 +27,7 @@ function Shell() {
   const tabs: { v: View; label: string }[] = [
     { v: 'practice', label: 'Practice' },
     { v: 'library', label: 'Library' },
+    { v: 'sheets', label: 'Sheets' },
     { v: 'settings', label: 'Settings' },
   ]
   return (
@@ -43,8 +46,24 @@ function Shell() {
         </div>
       </nav>
       <main className={`content view-${view}`}>
-        {error ? <p className="error card">{error}</p> : !ready ? <p className="muted center pad">Loading…</p> : view === 'practice' ? <PracticeView /> : view === 'library' ? <LibraryView /> : <SettingsView />}
+        {error ? <p className="error card">{error}</p> : !ready ? <p className="muted center pad">Loading…</p> : view === 'practice' ? <PracticeView /> : view === 'library' ? <LibraryView /> : view === 'sheets' ? <SheetsView /> : <SettingsView />}
       </main>
+      <UpdateBanner />
+    </div>
+  )
+}
+
+/** Tells you when a new deploy has been installed in the background. */
+function UpdateBanner() {
+  const [s, setS] = useState(pwaState)
+  const [dismissed, setDismissed] = useState(false)
+  useEffect(() => subscribePwa(setS), [])
+  if (!s.updated || dismissed) return null
+  return (
+    <div className="app-banner" role="status">
+      <span>A new version of Keys Lab is ready.</span>
+      <button className="btn sm" onClick={() => location.reload()}>Reload</button>
+      <button className="btn ghost sm" onClick={() => setDismissed(true)}>Later</button>
     </div>
   )
 }

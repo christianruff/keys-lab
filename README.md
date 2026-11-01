@@ -18,6 +18,32 @@ npm run preview    # serve the production build at http://localhost:4173
 `dist/` is a static site, so any static file server works (`npx serve dist`). It must be served over http(s),
 not opened as a `file://` URL, because the browser blocks module scripts and sample loading from `file://`.
 
+## Deploy (keys.christianruff.com)
+
+The app is a static site hosted on Cloudflare Pages. Every push to `main` deploys production, and every pull request
+gets its own preview URL. GitHub Actions (`.github/workflows/ci.yml`) runs lint, tests and the build on the same pushes.
+
+One-time setup in the Cloudflare dashboard:
+
+1. **Workers & Pages → Create → Pages → Connect to Git**, pick `christianruff/keys-lab`.
+2. Framework preset: none. Build command `npm run build`, output directory `dist`, production branch `main`.
+   Node comes from `.node-version`.
+3. After the first deploy: **Custom domains → Set up a domain → `keys.christianruff.com`**. Because christianruff.com
+   already uses Cloudflare DNS, the CNAME record is created for you.
+
+`public/_headers` sends `X-Robots-Tag: noindex` on every response, `index.html` has a `noindex` meta tag, and
+`robots.txt` disallows all crawlers, so the app stays out of search engines.
+
+## Offline and devices
+
+`npm run build` generates `dist/sw.js`, a service worker that precaches the whole app, including the piano samples.
+After one online visit, Keys Lab opens and plays with no connection. Add it to the Home Screen (iPhone/iPad: Share →
+Add to Home Screen) to use it like an app. A new deploy installs in the background and the app offers to reload.
+
+Data is stored per device (and on iOS the Home Screen app is separate from Safari). Move it with
+Settings → Data: export a full backup (or "Send backup to another device…" via AirDrop/Files) and import it on the
+other device. The **Sheets** tab builds printable voicing sheets in any keys for paper or PDF reference.
+
 ## Writing formulas
 
 A voicing is a list of degrees for each hand, written low to high, such as LH `1 5 9` and RH `b3 b7 11`.

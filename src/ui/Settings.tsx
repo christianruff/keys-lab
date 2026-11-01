@@ -1,6 +1,15 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useStore } from './store'
 import { Segmented } from './common'
+import { isStandalone, pwaState, subscribePwa } from '../pwa'
+
+const canShareFiles = () => {
+  try {
+    return !!navigator.canShare?.({ files: [new File(['{}'], 'x.json', { type: 'application/json' })] })
+  } catch {
+    return false
+  }
+}
 
 export function SettingsView() {
   const { settings, updateSettings, exportJson, importJson, resetLibrary } = useStore()
@@ -8,6 +17,9 @@ export function SettingsView() {
   const [mode, setMode] = useState<'merge' | 'replace'>('merge')
   const [msg, setMsg] = useState<string | null>(null)
   const [confirmReset, setConfirmReset] = useState(false)
+  const [pwa, setPwa] = useState(pwaState)
+  useEffect(() => subscribePwa(setPwa), [])
+  const share = canShareFiles()
   const toggle = (k: 'showNoteNames' | 'showDegrees' | 'showRoman' | 'autoplayOnReveal' | 'countIn' | 'metronome' | 'preferGb', label: string, hint?: string) => (
     <label className="setting-check">
       <input type="checkbox" checked={settings[k]} onChange={(e) => updateSettings({ [k]: e.target.checked })} />
@@ -49,8 +61,9 @@ export function SettingsView() {
       </section>
       <section className="card">
         <h3>Data</h3>
-        <p className="muted small">Everything is stored locally in this browser (IndexedDB). Export regularly to keep a backup.</p>
+        <p className="muted small">Everything is stored on this device only. To move to another device, export a full backup here and import it there with Replace all (or Merge to just add exercises).</p>
         <div className="row gap wrap">
+          {share && <button className="btn primary" onClick={() => exportJson('full', true)}>Send backup to another device…</button>}
           <button className="btn" onClick={() => exportJson('library')}>Export library</button>
           <button className="btn" onClick={() => exportJson('full')}>Export full backup</button>
         </div>
@@ -79,6 +92,15 @@ export function SettingsView() {
             </span>
           )}
         </div>
+      </section>
+      <section className="card">
+        <h3>Offline</h3>
+        <ul className="small offline-status">
+          <li>{pwa.offlineReady ? '✓ Saved for offline use. Keys Lab opens and plays without a connection.' : '… Saving the app for offline use (open it once while online).'}</li>
+          <li>{isStandalone() ? '✓ Running as an installed app.' : 'Install it: on iPhone/iPad tap Share → Add to Home Screen; in Chrome or Edge use Install app in the address bar.'}</li>
+          {pwa.persisted === false && <li>The browser may clear local data if storage runs low, so export a backup now and then.</li>}
+        </ul>
+        <p className="muted small">On iPhone and iPad the Home Screen app keeps its own data, separate from Safari. Use the installed app for practice, and move data between them with a backup.</p>
       </section>
       <section className="card about">
         <h3>About</h3>

@@ -9,7 +9,13 @@ import { newSeed } from '../schedule/rng'
 import { piano } from '../audio/engine'
 import type { Exercise, Progress, Rating, Session, SessionParams, Settings } from '../model/types'
 
-export type View = 'practice' | 'library' | 'settings'
+export type View = 'practice' | 'library' | 'sheets' | 'settings'
+
+/** What the printable sheet shows; set from the library's "Print sheet" button. */
+export interface SheetPreset {
+  ids: string[]
+  keys: number[]
+}
 
 interface Store {
   ready: boolean
@@ -20,6 +26,8 @@ interface Store {
   session: Session | undefined
   view: View
   setView: (v: View) => void
+  sheetPreset: SheetPreset | null
+  openSheets: (preset: SheetPreset) => void
   updateSettings: (patch: Partial<Settings>) => void
   startSession: (params: SessionParams, seed?: number) => string | null
   rate: (r: Rating) => Promise<void>
@@ -28,7 +36,8 @@ interface Store {
   tick: (ms: number) => void
   saveExercise: (e: Exercise) => Promise<void>
   deleteExercise: (id: string) => Promise<void>
-  exportJson: (scope: 'library' | 'full') => Promise<void>
+  /** Download the export, or hand it to the system share sheet (AirDrop, Files, Mail…) when `share` is set. */
+  exportJson: (scope: 'library' | 'full', share?: boolean) => Promise<void>
   importJson: (text: string, mode: 'merge' | 'replace') => Promise<string>
   resetLibrary: () => Promise<void>
 }
@@ -43,7 +52,7 @@ export function useStore(): Store {
 
 const viewFromHash = (): View => {
   const h = location.hash.replace('#/', '')
-  return h === 'library' || h === 'settings' ? h : 'practice'
+  return h === 'library' || h === 'settings' || h === 'sheets' ? h : 'practice'
 }
 
 export function StoreProvider({ children }: { children: ReactNode }) {
@@ -55,6 +64,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
   const [session, setSession] = useState<Session | undefined>()
   const [view, setViewState] = useState<View>(viewFromHash)
+  const [sheetPreset, setSheetPreset] = useState<SheetPreset | null>(null)
   const sessionRef = useRef(session)
   sessionRef.current = session
   const progressRef = useRef(progress)
@@ -95,6 +105,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     location.hash = v === 'practice' ? '' : `/${v}`
     setViewState(v)
   }, [])
+
+  const openSheets = useCallback((preset: SheetPreset) => {
+    setSheetPreset(preset)
+    setView('sheets')
+  }, [setView])
 
   const updateSettings = useCallback((patch: Partial<Settings>) => {
     setSettings((prev) => {
@@ -173,12 +188,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setSession(snap.session)
   }
 
-  const exportJson = async (scope: 'library' | 'full') => {
+  const exportJson = async (scope: 'library' | 'full', share = false) => {
     const data = await exportData(repo(), scope)
+    const name = `keys-lab-${scope}-${new Date().toISOString().slice(0, 10)}.json`
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+    if (share) {
+      const file = new File([blob], name, { type: 'application/json' })
+      if (navigator.canShare?.({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: 'Keys Lab backup' })
+          return
+        } catch (e) {
+          if ((e as Error).name === 'AbortError') return
+        }
+      }
+    }
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
-    a.download = `keys-lab-${scope}-${new Date().toISOString().slice(0, 10)}.json`
+    a.download = name
     a.click()
     setTimeout(() => URL.revokeObjectURL(a.href), 1000)
   }
@@ -198,11 +225,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<Store>(
     () => ({
-      ready, error, exercises, progress, settings, session, view, setView, updateSettings, startSession, rate, move,
+      ready, error, exercises, progress, settings, session, view, setView, sheetPreset, openSheets, updateSettings, startSession, rate, move,
       endSession, tick, saveExercise, deleteExercise, exportJson, importJson, resetLibrary,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [ready, error, exercises, progress, settings, session, view],
+    [ready, error, exercises, progress, settings, session, view, sheetPreset],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
